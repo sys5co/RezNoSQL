@@ -177,7 +177,7 @@ znsq_read(conn, key, val, buf, &blen, 0, &ropts);
 znsq_close(conn);
 ```
 
-See [COMPARISON.md](COMPARISON.md) for a detailed feature-by-feature comparison.
+See [COMPARISON.md](COMPARISON.md) for a detailed feature-by-feature comparison and [SEARCH_GUIDE.md](SEARCH_GUIDE.md) for search strategies and performance guidelines.
 
 ## API Reference
 
@@ -257,6 +257,8 @@ See [COMPARISON.md](COMPARISON.md) for a detailed feature-by-feature comparison.
 | `delete.jcl` | JCL to delete demo dataset |
 | `reznosql_sample.c` | Comprehensive test (indexes, auto-keys, browse ops) |
 | `COMPARISON.md` | EzNoSQL vs RezNoSQL comparison |
+| `SEARCH_GUIDE.md` | Search strategies and performance guidelines |
+| `samples/` | Search sample programs (browse+filter, indexed, hashed) |
 
 ## Using RezNoSQL in Your Program
 
