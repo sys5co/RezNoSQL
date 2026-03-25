@@ -33,6 +33,7 @@ typedef struct rznsq_conn {
     int            browse_active;
     int            auto_key;         /* 1 = auto-generate rznsq_id        */
     unsigned long  auto_key_seq;     /* Sequence counter for auto keys     */
+    int            hashed;           /* 1 = hashed (unordered) key mode    */
     char           last_error[RZNSQ_MAX_ERRMSG];
     rznsq_stats    stats;
     rznsq_index_t  indexes[RZNSQ_MAX_INDEXES];
@@ -90,6 +91,45 @@ static size_t strip_quotes(const char *in, char *out, size_t out_size)
     memcpy(out, in, len);
     out[len] = '\0';
     return len;
+}
+
+/*
+ * FNV-1a hash (64-bit).
+ * Simple, fast, good distribution, no external dependencies.
+ */
+static unsigned long fnv1a_64(const void *data, size_t len)
+{
+    const unsigned char *p = (const unsigned char *)data;
+    unsigned long h = 14695981039346656037UL; /* FNV offset basis */
+    size_t i;
+    for (i = 0; i < len; i++) {
+        h ^= p[i];
+        h *= 1099511628211UL; /* FNV prime */
+    }
+    return h;
+}
+
+/*
+ * Hash a user key into a 128-byte VSAM key (hex-encoded).
+ * Produces 8 rounds of FNV-1a with varying seeds → 8×16 = 128 hex chars.
+ * The result is deterministic and uniformly distributed.
+ */
+static void hash_key(const char *user_key, size_t user_key_len,
+                     char *out)  /* out must be at least 129 bytes */
+{
+    int round;
+    char *p = out;
+    for (round = 0; round < 8; round++) {
+        /* Mix round number into the key for different hash values */
+        unsigned char buf[260];
+        buf[0] = (unsigned char)round;
+        if (user_key_len > sizeof(buf) - 1)
+            user_key_len = sizeof(buf) - 1;
+        memcpy(buf + 1, user_key, user_key_len);
+        sprintf(p, "%016lX", fnv1a_64(buf, user_key_len + 1));
+        p += 16;
+    }
+    *p = '\0';  /* 128 hex chars + null */
 }
 
 /*
@@ -343,10 +383,14 @@ int rznsq_create(const char *dsname, const rznsq_create_options *options)
     if (!dsname || !options)
         return RZNSQ_MAKE_RC(RZNSQ_RC_ERROR, RZNSQ_RSN_INVALID_PARAM);
 
-    ks = options->key_size;
-    if (ks == 0) ks = RZNSQ_KEY_DEFAULT;
-    if (ks < RZNSQ_KEY_MIN) ks = RZNSQ_KEY_MIN;
-    if (ks > RZNSQ_KEY_MAX) ks = RZNSQ_KEY_MAX;
+    if (options->flags & RZNSQ_FLAG_HASHED) {
+        ks = RZNSQ_HASHED_KEY_SIZE;  /* Fixed 128 for hashed mode */
+    } else {
+        ks = options->key_size;
+        if (ks == 0) ks = RZNSQ_KEY_DEFAULT;
+        if (ks < RZNSQ_KEY_MIN) ks = RZNSQ_KEY_MIN;
+        if (ks > RZNSQ_KEY_MAX) ks = RZNSQ_KEY_MAX;
+    }
 
     avg_rec = RZNSQ_REC_HEADER(ks) + (options->avg_doc_size ? options->avg_doc_size : 256);
     max_rec = RZNSQ_MAX_REC(ks);
@@ -510,9 +554,13 @@ int rznsq_open(rznsq_connection_t *conn, const char *dsname,
 
     ks = RZNSQ_KEY_DEFAULT;
     if (options) {
-        if (options->key_size >= RZNSQ_KEY_MIN &&
-            options->key_size <= RZNSQ_KEY_MAX)
+        if (options->flags & RZNSQ_FLAG_HASHED) {
+            ks = RZNSQ_HASHED_KEY_SIZE;
+            c->hashed = 1;
+        } else if (options->key_size >= RZNSQ_KEY_MIN &&
+                   options->key_size <= RZNSQ_KEY_MAX) {
             ks = options->key_size;
+        }
         if (options->primary_key) {
             strncpy(c->primary_key_name, options->primary_key,
                     sizeof(c->primary_key_name) - 1);
@@ -614,8 +662,15 @@ int rznsq_write(rznsq_connection_t conn, const char *doc,
         rec = (char *)malloc(c->max_rec_size);
         if (!rec) { free(aug_doc); return RZNSQ_MAKE_RC(RZNSQ_RC_SEVERE, RZNSQ_RSN_ALLOC_FAILED); }
 
-        rec_len = pack_record(rec, key_val, klen, c->key_size,
-                              aug_doc, (unsigned int)aug_len);
+        if (c->hashed) {
+            char hk[RZNSQ_HASHED_KEY_SIZE + 1];
+            hash_key(key_val, klen, hk);
+            rec_len = pack_record(rec, hk, RZNSQ_HASHED_KEY_SIZE,
+                                  c->key_size, aug_doc, (unsigned int)aug_len);
+        } else {
+            rec_len = pack_record(rec, key_val, klen, c->key_size,
+                                  aug_doc, (unsigned int)aug_len);
+        }
 
         if (fwrite(rec, rec_len, 1, c->fp) != 1) {
             clearerr(c->fp);
@@ -639,8 +694,16 @@ int rznsq_write(rznsq_connection_t conn, const char *doc,
     if (!rec)
         return RZNSQ_MAKE_RC(RZNSQ_RC_SEVERE, RZNSQ_RSN_ALLOC_FAILED);
 
-    rec_len = pack_record(rec, key_val, klen, c->key_size,
-                          doc, (unsigned int)doc_len);
+    if (c->hashed) {
+        /* Hash the user key → 128-byte VSAM key */
+        char hashed_key[RZNSQ_HASHED_KEY_SIZE + 1];
+        hash_key(key_val, klen, hashed_key);
+        rec_len = pack_record(rec, hashed_key, RZNSQ_HASHED_KEY_SIZE,
+                              c->key_size, doc, (unsigned int)doc_len);
+    } else {
+        rec_len = pack_record(rec, key_val, klen, c->key_size,
+                              doc, (unsigned int)doc_len);
+    }
 
     if (fwrite(rec, rec_len, 1, c->fp) != 1) {
         clearerr(c->fp);
@@ -782,7 +845,13 @@ int rznsq_read(rznsq_connection_t conn, const char *key_name,
         }
     } else {
         /* Primary key lookup */
-        pad_key(padded, lookup_val, lookup_len, ks);
+        if (c->hashed) {
+            char hashed_key[RZNSQ_HASHED_KEY_SIZE + 1];
+            hash_key(lookup_val, lookup_len, hashed_key);
+            pad_key(padded, hashed_key, RZNSQ_HASHED_KEY_SIZE, ks);
+        } else {
+            pad_key(padded, lookup_val, lookup_len, ks);
+        }
 
         if (flocate(c->fp, padded, ks, __KEY_EQ) != 0) {
             set_error(c, "Key not found");
@@ -839,7 +908,14 @@ int rznsq_delete(rznsq_connection_t conn, const char *key_name,
     ks = c->key_size;
     hdr = RZNSQ_REC_HEADER(ks);
     lookup_len = strip_quotes(key_value, lookup_val, sizeof(lookup_val));
-    pad_key(padded, lookup_val, lookup_len, ks);
+
+    if (c->hashed) {
+        char hashed_key[RZNSQ_HASHED_KEY_SIZE + 1];
+        hash_key(lookup_val, lookup_len, hashed_key);
+        pad_key(padded, hashed_key, RZNSQ_HASHED_KEY_SIZE, ks);
+    } else {
+        pad_key(padded, lookup_val, lookup_len, ks);
+    }
 
     if (flocate(c->fp, padded, ks, __KEY_EQ) != 0) {
         set_error(c, "Key not found for delete");
@@ -927,11 +1003,19 @@ int rznsq_position(rznsq_connection_t conn, const char *key_name,
 
     ks = c->key_size;
     lookup_len = strip_quotes(key_value, lookup_val, sizeof(lookup_val));
-    pad_key(padded, lookup_val, lookup_len, ks);
 
     locate_mode = __KEY_EQ;
     if (options && options->generic)
         locate_mode = __KEY_GE;
+
+    if (c->hashed && locate_mode != __KEY_GE) {
+        /* Hashed mode: hash the key for exact lookup */
+        char hashed_key[RZNSQ_HASHED_KEY_SIZE + 1];
+        hash_key(lookup_val, lookup_len, hashed_key);
+        pad_key(padded, hashed_key, RZNSQ_HASHED_KEY_SIZE, ks);
+    } else {
+        pad_key(padded, lookup_val, lookup_len, ks);
+    }
 
     if (flocate(c->fp, padded, ks, locate_mode) != 0) {
         set_error(c, "flocate failed for position");

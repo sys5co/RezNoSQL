@@ -16,7 +16,8 @@
 | **Auto-key injection** | Prepends `"znsq_id":"<val>"` to JSON on write | Prepends `"rznsq_id":"<val>"` to JSON on write | Same |
 | **Auto-key trigger** | `primary_key = NULL` at create | `primary_key = NULL` at open | Same |
 | **Ordered key limit** | 251 bytes | 251 bytes (default) | Same |
-| **Key size configurable** | No (fixed 251 ordered, 128 hashed) | Yes (4-251, default 251) | RezNoSQL more flexible |
+| **Key size configurable** | No (fixed 251 ordered, 128 hashed) | Yes (4-251 ordered, 128 hashed) | RezNoSQL more flexible |
+| **Hashed key size** | 128 bytes | 128 bytes | Same |
 
 ### Data Management APIs
 
@@ -103,7 +104,7 @@
 | **Auto-key length** | 122 bytes (EBCDIC hex) | 32 bytes (ASCII hex: timestamp+seq) |
 | **Transactions (commit/abort)** | Real commit/rollback via TVS | No-op stubs |
 | **Document-level locking** | NRI/CR/CRE via CF | None |
-| **Unordered (hashed) keys** | Yes (128-byte hashed) | No |
+| **Unordered (hashed) keys** | Yes (128-byte, DATABASE(JSON) internal hash) | Yes (128-byte, app-level FNV-1a hash via `RZNSQ_FLAG_HASHED`) |
 | **Descending key order** | Yes (flag on create/open) | No |
 | **Result set token** | `znsq_result_set_t` (int32_t) | Implicit (single browse per connection) |
 | **Multi-level keys** | Yes (`\` separator, e.g. `"Address\Street"`) | No |

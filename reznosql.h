@@ -26,6 +26,7 @@ extern "C" {
 #define RZNSQ_KEY_MAX        251
 #define RZNSQ_KEY_DEFAULT    251   /* Matches EzNoSQL ordered key limit  */
 #define RZNSQ_KEY_MIN        4
+#define RZNSQ_HASHED_KEY_SIZE 128  /* Matches EzNoSQL unordered key size */
 #define RZNSQ_DOCLEN_SIZE    4
 #define RZNSQ_MAX_DOC        32000
 #define RZNSQ_MAX_INDEXES    16
@@ -68,6 +69,9 @@ extern "C" {
 #define RZNSQ_INDEX_UNIQUE      0
 #define RZNSQ_INDEX_NON_UNIQUE  1
 
+/* Create/open flags */
+#define RZNSQ_FLAG_HASHED       0x0001  /* Unordered (hashed) key mode   */
+
 /* --------------------------------------------------------------------
  * Opaque connection handle
  * -------------------------------------------------------------------- */
@@ -83,6 +87,7 @@ typedef struct {
     unsigned int   key_size;        /* Key field size (0 = default 251)  */
     unsigned int   avg_doc_size;    /* Avg doc size for RECORDSIZE avg   */
     const char    *primary_key;     /* JSON key name, NULL = auto rznsq_id */
+    unsigned int   flags;           /* RZNSQ_FLAG_HASHED for unordered   */
 } rznsq_create_options;
 
 typedef struct {
@@ -104,6 +109,7 @@ typedef struct {
 typedef struct {
     const char    *primary_key;     /* JSON primary key name, NULL=auto  */
     unsigned int   key_size;        /* Must match create key_size        */
+    unsigned int   flags;           /* RZNSQ_FLAG_HASHED for unordered   */
 } rznsq_open_options;
 
 typedef struct {
@@ -234,6 +240,8 @@ const char *rznsq_last_result(rznsq_connection_t conn);
 #define ZNSQ_MAX_ERRMSG         RZNSQ_MAX_ERRMSG
 #define ZNSQ_AUTO_KEY_NAME      RZNSQ_AUTO_KEY_NAME
 #define ZNSQ_AUTO_KEY_LEN       RZNSQ_AUTO_KEY_LEN
+#define ZNSQ_HASHED_KEY_SIZE    RZNSQ_HASHED_KEY_SIZE
+#define ZNSQ_FLAG_HASHED        RZNSQ_FLAG_HASHED
 #define ZNSQ_REC_HEADER         RZNSQ_REC_HEADER
 #define ZNSQ_MAX_REC            RZNSQ_MAX_REC
 
