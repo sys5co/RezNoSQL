@@ -258,6 +258,28 @@ See [COMPARISON.md](COMPARISON.md) for a detailed feature-by-feature comparison.
 | `reznosql_sample.c` | Comprehensive test (indexes, auto-keys, browse ops) |
 | `COMPARISON.md` | EzNoSQL vs RezNoSQL comparison |
 
-## License
+## Using RezNoSQL in Your Program
 
-MIT
+Copy `reznosql.h` and `reznosql.c` (or the built library) to your project.
+
+### Link with shared library
+
+```sh
+# Compile your program
+xlc -qlanglvl=extc99 -qDLL -o myapp myapp.c libreznosql.x
+
+# Run (set LIBPATH so the DLL is found)
+LIBPATH=/path/to/reznosql ./myapp
+```
+
+### Link with static library
+
+```sh
+xlc -qlanglvl=extc99 -o myapp myapp.c libreznosql.a
+```
+
+### Compile directly (no library needed)
+
+```sh
+xlc -qlanglvl=extc99 -o myapp myapp.c reznosql.c
+```
