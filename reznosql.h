@@ -50,7 +50,7 @@ extern "C" {
 #define RZNSQ_RSN_OK              0x0000
 #define RZNSQ_RSN_NOT_FOUND       0x0010
 #define RZNSQ_RSN_DUP_KEY         0x0014
-#define RZNSQ_RSN_END_OF_DATA     0x0020
+#define RZNSQ_RSN_END_OF_DATA     0x0043
 #define RZNSQ_RSN_BUF_TOO_SMALL   0x0051
 #define RZNSQ_RSN_OPEN_FAILED     0x0060
 #define RZNSQ_RSN_IDCAMS_FAILED   0x0070

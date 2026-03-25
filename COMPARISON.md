@@ -87,7 +87,7 @@
 |---|---|---|---|
 | **Not found** | x'10' | 0x0010 | Same |
 | **Duplicate key** | x'14' | 0x0014 | Same |
-| **End of data** | x'43' | 0x0020 | Different |
+| **End of data** | x'43' | 0x0043 | Same |
 | **Buffer too small** | x'51' | 0x0051 | Same |
 
 ## What's Different
@@ -120,7 +120,7 @@
 | **Dataset creation mechanism** | `znsq_create()` internal (not IDCAMS) | IDCAMS DEFINE CLUSTER via `system()` |
 | **Implementation** | IBM closed-source, z/OS system service | ~550 lines of C, single file, open source |
 | **Language bindings** | C, Java, Python | C only |
-| **Our system (VS01)** | Cannot run (no CF, RLSINIT=NO) | Works - all operations verified |
+
 
 ## API Function Count
 
