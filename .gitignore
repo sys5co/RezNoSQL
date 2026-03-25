@@ -1,0 +1,10 @@
+# Build artifacts
+*.o
+*.a
+*.so
+*.x
+
+# Binaries
+demo
+demo_static
+reznosql_sample
