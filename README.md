@@ -32,9 +32,10 @@ RezNoSQL uses standard VSAM KSDS with the z/OS C runtime (`fopen`, `flocate`, `f
 
 ## Requirements
 
-- z/OS with USS
-- IBM XL C/C++ compiler (`xlc`)
+- **z/OS V1.9 or later** (V1.9+ for C99 support in XL C/C++; tested on V2.4)
+- IBM XL C/C++ compiler (`xlc`) — compiled with extended C99 (`-qlanglvl=extc99`) for z/OS VSAM extensions
 - IDCAMS (standard z/OS utility)
+- z/OS UNIX System Services (USS)
 
 ## Build
 

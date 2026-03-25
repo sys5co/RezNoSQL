@@ -1,7 +1,7 @@
 CC      = xlc
 AR      = ar
 ARFLAGS = rcs
-CFLAGS  = -qcpluscmt -qlanglvl=extc99 -I.
+CFLAGS  = -qlanglvl=extc99 -I.
 
 # Shared library (DLL) flags
 CFLAGS_DLL  = $(CFLAGS) -qDLL -qEXPORTALL
